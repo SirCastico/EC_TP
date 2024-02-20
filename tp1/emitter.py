@@ -1,14 +1,43 @@
 import ascon
+import argparse
+import asyncio
+
+async def client(seed, message):
+    cntr = 0
+
+    r_bytes = ascon.hash(seed+bytes(cntr), 'Ascon-Xof', 32)
+    cntr += 1
+
+    key = r_bytes[0:16]
+    nonce = r_bytes[16:32]
+    associated_data = b''
+
+    while True:
+        reader, writer = await asyncio.open_connection('127.0.0.1', 8098)
+
+        print('counter: ', cntr)
+        nonce = ascon.hash(seed+bytes(cntr), 'Ascon-Xof', 16)
+        cntr += 1
+
+        crypt = ascon.encrypt(key, nonce, associated_data, message, 'Ascon-128')
+        writer.write(crypt)
+        await writer.drain()
+
+        print(f'sent enc: {crypt}\n')
+
+        writer.close()
+        await writer.wait_closed()
+
+        await asyncio.sleep(2)
 
 
-key = b'1234567890123456'
-nonce = b'1234567890123456'
-associated_data = b'asd'
+parser = argparse.ArgumentParser(prog='Emitter')
+parser.add_argument('-s', '--seed', required=True)
+parser.add_argument('-m', '--message', required=True)
 
-data = b'hello\n'
+args = parser.parse_args()
 
-crypt = ascon.encrypt(key, nonce, associated_data, data, 'Ascon-128')
+seed = bytes(args.seed, 'UTF-8')
+message = bytes(args.message, 'UTF-8')
 
-decrypted = ascon.decrypt(key, nonce, associated_data, crypt, 'Ascon-128')
-
-print(f'enc: {crypt}\ndec: {decrypted}')
+asyncio.run(client(seed, message))
