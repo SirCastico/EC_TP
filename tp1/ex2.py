@@ -54,7 +54,7 @@ class Agent:
         peer_signature = "signature"
 
         # Raises InvalidSignature if verification fails
-        peer_public_ed448.verify(peer_signature, peer_public_x448)
+        peer_public_ed448.verify(peer_signature, peer_public_x448_bytes)
 
         shared_key = self.private_key_x448.exchange(peer_public_x448)
         # Perform key derivation.
