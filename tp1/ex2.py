@@ -1,7 +1,8 @@
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import x448
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey
+from cryptography.hazmat.primitives.asymmetric import ed448
+from cryptography.hazmat.primitives import serialization
 
 class Agent:
 
@@ -25,26 +26,37 @@ class Agent:
         self.public_key_x448 = self.private_key_x448.public_key()
 
         # Ed448 Signing&Verification
-        self.private_key_ed448 = Ed448PrivateKey.generate()
+        self.private_key_ed448 = ed448.Ed448PrivateKey.generate()
         self.public_key_ed448 = self.private_key_ed448.public_key()
 
-    async def send_key(self):
+    async def send_keys(self):
 
-        signature = self.public_key_ed448.sign(b"my authenticated message")
+        x448_bytes = self.public_key_x448.public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
+        ed448_bytes = self.public_key_ed448.public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
+
+        signature = self.private_key_ed448.sign(x448_bytes)
+        
+        # send keys + signature
+        data = x448_bytes + ed448_bytes + signature
+
 
     async def receive_keys(self):
 
-        # Get peer ed448 key and signature
-        peer_public_key_ed448 = "key_ed448"
-        peer_public_key_ed448_sign = "signature"
-
-        # Raises InvalidSignature if verification fails
-        peer_public_key_ed448.verify(peer_public_key_ed448_sign, b"my authenticated message")
+        # Get peer ed448 key
+        peer_public_ed448_bytes = "key_ed448_bytes"
+        peer_public_ed448 = ed448.Ed448PublicKey.from_public_bytes(peer_public_ed448_bytes)
 
         # Get peer x448 key 
-        peer_public_key_x448 = "key_448"
+        peer_public_x448_bytes = "key_x448_bytes"
+        peer_public_x448 = x448.X448PublicKey.from_public_bytes(peer_public_x448_bytes)
 
-        shared_key = self.private_key_x448.exchange(peer_public_key_x448)
+        # Get signature
+        peer_signature = "signature"
+
+        # Raises InvalidSignature if verification fails
+        peer_public_ed448.verify(peer_signature, peer_public_x448)
+
+        shared_key = self.private_key_x448.exchange(peer_public_x448)
         # Perform key derivation.
         derived_key = HKDF(
 
